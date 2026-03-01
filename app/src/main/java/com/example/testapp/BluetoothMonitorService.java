@@ -62,7 +62,7 @@ public class BluetoothMonitorService extends Service {
     }
 
     @Override
-    public int onStartCommand(Intent intent, int flags, intStartId) {
+    public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "服务启动");
         return START_STICKY; // 服务被杀后自动重启
     }
@@ -267,18 +267,27 @@ public class BluetoothMonitorService extends Service {
         
         boolean success = false;
         
-        try {
-            Method method = wifiManager.getClass().getMethod("setWifiApEnabled", 
-                android.net.wifi.WifiConfiguration.class, boolean.class);
-            success = (Boolean) method.invoke(wifiManager, null, enable);
-        } catch (Exception e) {
-            Log.e(TAG, "开启热点失败", e);
-            
-            // 尝试华为设备专用方法
-            if (isHuaweiDevice()) {
-                Log.d(TAG, "尝试华为设备专用方法");
-                success = enableHotspotForHuawei(wifiManager, enable);
+        // HarmonyOS 4.3.0 特殊处理
+        if (isHarmonyOS430()) {
+            Log.d(TAG, "HarmonyOS 4.3.0 检测到，使用特殊方法");
+            success = enableHotspotForHarmonyOS430(wifiManager, enable);
+        }
+        
+        // 标准 Android 方法
+        if (!success) {
+            try {
+                Method method = wifiManager.getClass().getMethod("setWifiApEnabled", 
+                    android.net.wifi.WifiConfiguration.class, boolean.class);
+                success = (Boolean) method.invoke(wifiManager, null, enable);
+            } catch (Exception e) {
+                Log.e(TAG, "标准方法开启热点失败", e);
             }
+        }
+        
+        // 华为旧设备专用方法
+        if (!success && isHuaweiDevice()) {
+            Log.d(TAG, "尝试华为旧设备专用方法");
+            success = enableHotspotForHuawei(wifiManager, enable);
         }
         
         isHotspotEnabled = enable && success;
@@ -293,6 +302,60 @@ public class BluetoothMonitorService extends Service {
     private boolean isHuaweiDevice() {
         return android.os.Build.MANUFACTURER.equalsIgnoreCase("HUAWEI") || 
                android.os.Build.MANUFACTURER.equalsIgnoreCase("HONOR");
+    }
+    
+    private boolean isHarmonyOS() {
+        // HarmonyOS 4.2.0 / 4.3.0 检测
+        // 通过系统属性判断（华为设备专用）
+        if (!isHuaweiDevice()) {
+            return false;
+        }
+        
+        // 尝试读取 HarmonyOS 版本属性
+        try {
+            @SuppressWarnings("DiscouragedPrivateApi")
+            java.lang.reflect.Method get = System.class.getDeclaredMethod("getProperty", String.class);
+            String harmonyVersion = (String) get.invoke(null, "ro.build.harmony.version");
+            if (harmonyVersion != null && !harmonyVersion.isEmpty()) {
+                Log.d(TAG, "HarmonyOS 版本：" + harmonyVersion);
+                return true;
+            }
+        } catch (Exception e) {
+            // 无法读取属性，继续其他检测
+        }
+        
+        // HarmonyOS 4.x 基于 Android 12/13，可以通过 Build 信息辅助判断
+        String display = android.os.Build.DISPLAY;
+        if (display != null && (display.contains("HarmonyOS") || display.contains("OS"))) {
+            Log.d(TAG, "检测到 HarmonyOS: " + display);
+            return true;
+        }
+        
+        // 默认华为设备认为是 HarmonyOS
+        return true;
+    }
+    
+    private boolean isHarmonyOS430() {
+        // HarmonyOS 4.3.0 基于 Android 13 (API 33)
+        // 主要通过系统属性判断
+        if (!isHarmonyOS()) {
+            return false;
+        }
+        
+        try {
+            @SuppressWarnings("DiscouragedPrivateApi")
+            java.lang.reflect.Method get = System.class.getDeclaredMethod("getProperty", String.class);
+            String harmonyVersion = (String) get.invoke(null, "ro.build.harmony.version");
+            if (harmonyVersion != null && harmonyVersion.startsWith("4.3")) {
+                Log.d(TAG, "HarmonyOS 4.3.0 检测到：" + harmonyVersion);
+                return true;
+            }
+        } catch (Exception e) {
+            // 无法读取
+        }
+        
+        // API 33+ 且是华为设备，可能是 HarmonyOS 4.3.0
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU;
     }
 
     private boolean enableHotspotForHuawei(android.net.wifi.WifiManager wifiManager, boolean enable) {
