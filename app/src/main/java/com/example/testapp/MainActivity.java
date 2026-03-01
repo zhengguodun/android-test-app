@@ -283,9 +283,10 @@ public class MainActivity extends AppCompatActivity {
         }
         
         isHotspotEnabled = enable && success;
+        final boolean finalSuccess = success;
         
         runOnUiThread(() -> {
-            if (success) {
+            if (finalSuccess) {
                 String status = enable ? 
                     "✅ 热点已开启" : 
                     "✅ 热点已关闭";
