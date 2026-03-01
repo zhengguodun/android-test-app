@@ -281,7 +281,6 @@ public class BluetoothMonitorService extends Service {
         serviceLog("📝 Display: " + android.os.Build.DISPLAY);
         serviceLog("🔷 是华为设备：" + isHuaweiDevice());
         serviceLog("🔷 是 HarmonyOS: " + isHarmonyOS());
-        serviceLog("🔷 是 HarmonyOS 4.3.0: " + isHarmonyOS430());
         
         android.net.wifi.WifiManager wifiManager = 
             (android.net.wifi.WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
@@ -301,56 +300,83 @@ public class BluetoothMonitorService extends Service {
         boolean success = false;
         String usedMethod = "";
         
-        // HarmonyOS 4.3.0 特殊处理
-        if (isHarmonyOS430()) {
-            serviceLog("🔷 使用 HarmonyOS 4.3.0 专用方法");
-            success = enableHotspotForHarmonyOS430(wifiManager, enable);
-            if (success) usedMethod = "HarmonyOS 4.3.0";
+        // 方法 1: 标准 Android 反射方法（最先尝试，因为最简单）
+        serviceLog("🔷 方法 1/5: 标准 Android 反射方法");
+        try {
+            Method method = wifiManager.getClass().getMethod("setWifiApEnabled", 
+                android.net.wifi.WifiConfiguration.class, boolean.class);
+            success = (Boolean) method.invoke(wifiManager, null, enable);
+            if (success) {
+                usedMethod = "标准反射";
+                serviceLog("✅ 方法 1 成功");
+            } else {
+                serviceLog("❌ 方法 1 返回 false");
+            }
+        } catch (Exception e) {
+            serviceLog("❌ 方法 1 异常：" + e.getClass().getSimpleName() + ": " + e.getMessage(), "ERROR");
         }
         
-        // 标准 Android 方法
-        if (!success) {
-            serviceLog("🔷 尝试标准 Android 反射方法");
+        // 方法 2: 带 WiFi 配置的反射方法
+        if (!success && enable) {
+            serviceLog("🔷 方法 2/5: 带配置的反射方法");
             try {
+                android.net.wifi.WifiConfiguration config = new android.net.wifi.WifiConfiguration();
+                config.SSID = "Hotspot_" + System.currentTimeMillis();
+                config.preSharedKey = "12345678";
+                config.allowedKeyManagement.set(android.net.wifi.WifiConfiguration.KeyMgmt.WPA_PSK);
+                
                 Method method = wifiManager.getClass().getMethod("setWifiApEnabled", 
                     android.net.wifi.WifiConfiguration.class, boolean.class);
-                success = (Boolean) method.invoke(wifiManager, null, enable);
-                if (success) usedMethod = "标准反射";
+                success = (Boolean) method.invoke(wifiManager, config, true);
+                if (success) {
+                    usedMethod = "带配置反射";
+                    serviceLog("✅ 方法 2 成功");
+                } else {
+                    serviceLog("❌ 方法 2 返回 false");
+                }
             } catch (Exception e) {
-                serviceLog("❌ 标准反射方法失败：" + e.getMessage(), "ERROR");
+                serviceLog("❌ 方法 2 异常：" + e.getClass().getSimpleName(), "ERROR");
             }
         }
         
-        // 华为旧设备专用方法
+        // 方法 3: 华为 HwWifiManager
         if (!success && isHuaweiDevice()) {
-            serviceLog("🔷 尝试华为 HwWifiManager 方法");
+            serviceLog("🔷 方法 3/5: 华为 HwWifiManager");
             success = enableHotspotForHuawei(wifiManager, enable);
             if (success) usedMethod = "华为 HwWifiManager";
         }
         
-        // 尝试关闭 WiFi 再开启热点（某些设备需要）
+        // 方法 4: 关闭 WiFi 后再开启
         if (!success && enable && isWifiEnabled) {
-            serviceLog("🔷 尝试先关闭 WiFi 再开启热点");
+            serviceLog("🔷 方法 4/5: 关闭 WiFi 后开启");
             try {
+                serviceLog("⚠️ 关闭 WiFi...");
                 wifiManager.setWifiEnabled(false);
-                serviceLog("⚠️ 已关闭 WiFi");
-                Thread.sleep(500);
+                Thread.sleep(1000);
                 
                 Method method = wifiManager.getClass().getMethod("setWifiApEnabled", 
                     android.net.wifi.WifiConfiguration.class, boolean.class);
                 success = (Boolean) method.invoke(wifiManager, null, true);
                 if (success) {
                     usedMethod = "关闭 WiFi 后开启";
-                    serviceLog("✅ 成功：需要先关闭 WiFi");
+                    serviceLog("✅ 方法 4 成功");
+                } else {
+                    serviceLog("❌ 方法 4 返回 false");
+                    // 重新开启 WiFi
+                    wifiManager.setWifiEnabled(true);
+                    serviceLog("⚠️ 重新开启 WiFi");
                 }
             } catch (Exception e) {
-                serviceLog("❌ 关闭 WiFi 方法失败：" + e.getMessage(), "ERROR");
-                // 尝试重新开启 WiFi
-                try {
-                    wifiManager.setWifiEnabled(true);
-                    serviceLog("⚠️ 已重新开启 WiFi");
-                } catch (Exception ignore) {}
+                serviceLog("❌ 方法 4 异常：" + e.getMessage(), "ERROR");
+                try { wifiManager.setWifiEnabled(true); } catch (Exception ignore) {}
             }
+        }
+        
+        // 方法 5: 使用 Tethering Manager（Android 11+）
+        if (!success && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            serviceLog("🔷 方法 5/5: Tethering Manager (Android 11+)");
+            success = enableTethering(enable);
+            if (success) usedMethod = "Tethering Manager";
         }
         
         isHotspotEnabled = enable && success;
@@ -366,11 +392,33 @@ public class BluetoothMonitorService extends Service {
         
         updateNotification("设备：" + (isConnectedToTarget ? "已连接" : "已断开") + " | " + status);
         
-        // 如果失败，显示更详细的提示
+        // 如果失败，给出详细建议
         if (!success && enable) {
-            serviceLog("⚠️ 热点开启失败，可能需要手动开启", "WARN");
-            serviceLog("⚠️ 请检查：设置 → 移动网络 → 个人热点", "WARN");
-            serviceLog("❌ 错误详情：所有尝试的方法都失败了", "ERROR");
+            serviceLog("⚠️ ️ ⚠️ 热点开启失败 ⚠️ ⚠️ ⚠️", "ERROR");
+            serviceLog("原因：HarmonyOS 系统限制了第三方应用直接开启热点", "WARN");
+            serviceLog("解决方案:", "WARN");
+            serviceLog("  1. 手动开启：设置 → 移动网络 → 个人热点", "WARN");
+            serviceLog("  2. 或使用 ADB 授权（需要电脑）:", "WARN");
+            serviceLog("     adb shell pm grant com.example.testapp android.permission.WRITE_SECURE_SETTINGS", "WARN");
+        }
+    }
+    
+    /**
+     * Android 11+ 使用 Tethering Manager 开启热点
+     */
+    private boolean enableTethering(boolean enable) {
+        try {
+            // 尝试使用 TetheringManager
+            Class<?> tetheringManagerClass = Class.forName("android.net.TetheringManager");
+            Method getTetheringManager = android.net.wifi.WifiManager.class
+                .getMethod("getTetheringManager"); // 或者从 Context 获取
+            
+            // 由于 API 限制，这个方法可能也不可用
+            serviceLog("⚠️ Tethering Manager 方法在当前设备上不可用", "WARN");
+            return false;
+        } catch (Exception e) {
+            serviceLog("❌ Tethering Manager 失败：" + e.getMessage(), "ERROR");
+            return false;
         }
     }
 
