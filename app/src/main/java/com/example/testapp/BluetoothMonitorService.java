@@ -504,28 +504,34 @@ public class BluetoothMonitorService extends Service {
             // 方法 2: 使用 WifiManager 的 startLocalOnlyHotspot
             try {
                 serviceLog("  尝试 startLocalOnlyHotspot...");
-                Method startLocalOnlyHotspot = wifiManager.getClass().getMethod(
-                    "startLocalOnlyHotspot",
-                    android.net.wifi.WifiManager.LocalOnlyHotspotCallback.class,
-                    android.os.Handler.class
-                );
+                android.net.wifi.WifiManager wm = 
+                    (android.net.wifi.WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
                 
-                startLocalOnlyHotspot.invoke(wifiManager, new android.net.wifi.WifiManager.LocalOnlyHotspotCallback() {
-                    @Override
-                    public void onStarted(android.net.wifi.WifiManager.LocalOnlyHotspotReservation reservation) {
-                        super.onStarted(reservation);
-                        serviceLog("✅ LocalOnlyHotspot 启动成功");
-                    }
+                if (wm != null) {
+                    Method startLocalOnlyHotspot = wm.getClass().getMethod(
+                        "startLocalOnlyHotspot",
+                        android.net.wifi.WifiManager.LocalOnlyHotspotCallback.class,
+                        android.os.Handler.class
+                    );
                     
-                    @Override
-                    public void onFailed(int reason) {
-                        super.onFailed(reason);
-                        serviceLog("❌ LocalOnlyHotspot 失败：" + reason);
-                    }
-                }, handler);
-                
-                serviceLog("✅ startLocalOnlyHotspot 调用成功");
-                return true;
+                    startLocalOnlyHotspot.invoke(wm, new android.net.wifi.WifiManager.LocalOnlyHotspotCallback() {
+                        @Override
+                        public void onStarted(android.net.wifi.WifiManager.LocalOnlyHotspotReservation reservation) {
+                            super.onStarted(reservation);
+                            serviceLog("✅ LocalOnlyHotspot 启动成功");
+                        }
+                        
+                        @Override
+                        public void onFailed(int reason) {
+                            super.onFailed(reason);
+                            serviceLog("❌ LocalOnlyHotspot 失败：" + reason);
+                        }
+                    }, handler);
+                    
+                    serviceLog("✅ startLocalOnlyHotspot 调用成功");
+                    Thread.sleep(2000);
+                    return true;
+                }
                 
             } catch (Exception e) {
                 serviceLog("❌ startLocalOnlyHotspot 失败：" + e.getMessage(), "ERROR");
