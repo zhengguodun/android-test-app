@@ -358,6 +358,67 @@ public class BluetoothMonitorService extends Service {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU;
     }
 
+    private boolean enableHotspotForHarmonyOS430(android.net.wifi.WifiManager wifiManager, boolean enable) {
+        Log.d(TAG, "HarmonyOS 4.3.0 热点" + (enable ? "开启" : "关闭"));
+        
+        // HarmonyOS 4.3.0 可能使用新的 API 或限制更多
+        // 尝试多种方法
+        
+        // 方法 1: 标准反射方法
+        try {
+            Method method = wifiManager.getClass().getMethod("setWifiApEnabled", 
+                android.net.wifi.WifiConfiguration.class, boolean.class);
+            Boolean result = (Boolean) method.invoke(wifiManager, null, enable);
+            if (result) {
+                Log.d(TAG, "HarmonyOS 4.3.0 标准方法成功");
+                return true;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "HarmonyOS 4.3.0 标准方法失败", e);
+        }
+        
+        // 方法 2: 尝试使用 WifiConfiguration 设置热点
+        try {
+            android.net.wifi.WifiConfiguration config = new android.net.wifi.WifiConfiguration();
+            config.SSID = "Hotspot";
+            config.preSharedKey = "12345678";
+            
+            Method method = wifiManager.getClass().getMethod("setWifiApEnabled", 
+                android.net.wifi.WifiConfiguration.class, boolean.class);
+            Boolean result = (Boolean) method.invoke(wifiManager, config, enable);
+            if (result) {
+                Log.d(TAG, "HarmonyOS 4.3.0 带配置方法成功");
+                return true;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "HarmonyOS 4.3.0 带配置方法失败", e);
+        }
+        
+        // 方法 3: 尝试华为 HwWifiManager
+        try {
+            Method getHwWifiManager = wifiManager.getClass().getMethod("getHwWifiManager");
+            Object hwWifiManager = getHwWifiManager.invoke(wifiManager);
+            
+            if (hwWifiManager != null) {
+                Method setWifiApEnabled = hwWifiManager.getClass()
+                    .getMethod("setWifiApEnabled", 
+                        android.net.wifi.WifiConfiguration.class, 
+                        boolean.class, 
+                        int.class);
+                Boolean result = (Boolean) setWifiApEnabled.invoke(hwWifiManager, null, enable, 0);
+                if (result) {
+                    Log.d(TAG, "HarmonyOS 4.3.0 华为专用方法成功");
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "HarmonyOS 4.3.0 华为专用方法失败", e);
+        }
+        
+        Log.w(TAG, "HarmonyOS 4.3.0 所有方法都失败了");
+        return false;
+    }
+
     private boolean enableHotspotForHuawei(android.net.wifi.WifiManager wifiManager, boolean enable) {
         try {
             Method getHwWifiManager = wifiManager.getClass().getMethod("getHwWifiManager");
