@@ -12,8 +12,9 @@
         android:orientation="vertical"
         android:padding="16dp">
 
+        <!-- 状态显示 -->
         <TextView
-            android:id="@+id/textView"
+            android:id="@+id/statusTextView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="正在初始化..."
@@ -21,7 +22,8 @@
             android:textAlignment="center"
             android:gravity="center"
             android:lineSpacingExtra="6dp"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginBottom="16dp"
+            android:textStyle="bold" />
 
         <!-- 设置区域 -->
         <TextView
@@ -114,19 +116,81 @@
             android:layout_height="wrap_content"
             android:text="⏹️ 停止服务"
             android:textSize="16sp"
-            android:backgroundTint="#F44336" />
+            android:backgroundTint="#F44336"
+            android:layout_marginBottom="16dp" />
+
+        <!-- 设备信息 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📱 设备信息"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/deviceInfoTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="加载中..."
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:background="#F5F5F5"
+            android:padding="8dp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- 日志区域 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📋 调试日志"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp" />
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:fillViewport="true"
+            android:scrollbars="vertical|horizontal">
+
+            <TextView
+                android:id="@+id/logTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="等待日志..."
+                android:textSize="11sp"
+                android:textColor="#333333"
+                android:fontFamily="monospace"
+                android:background="#1E1E1E"
+                android:padding="12dp"
+                android:scrollbars="vertical"
+                android:lineSpacingExtra="4dp" />
+        </HorizontalScrollView>
+
+        <Button
+            android:id="@+id/clearLogButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🗑️ 清空日志"
+            android:textSize="14sp"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="#757575" />
 
         <!-- 说明区域 -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="📱 使用说明：\n\n1. 修改设备名称和延迟时间\n2. 点击'保存设置'\n3. 点击'启动后台监控服务'\n4. 通知栏会显示监控状态\n5. 连接到指定设备时自动开启热点"
+            android:text="💡 使用说明：\n\n1. 修改设备名称和延迟时间\n2. 点击'保存设置'\n3. 点击'启动后台监控服务'\n4. 通知栏会显示监控状态\n5. 连接到指定设备时自动开启热点\n\n⚠️ HarmonyOS 用户首次需手动开启一次热点"
             android:textSize="13sp"
             android:textAlignment="center"
             android:gravity="center"
             android:lineSpacingExtra="4dp"
             android:textColor="#666666"
-            android:layout_marginTop="24dp" />
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="16dp" />
 
     </LinearLayout>
 </ScrollView>
