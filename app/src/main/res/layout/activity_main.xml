@@ -1,39 +1,132 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
+<ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:fillViewport="true">
 
-    <TextView
-        android:id="@+id/textView"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="正在初始化..."
-        android:textSize="18sp"
-        android:textAlignment="center"
-        android:gravity="center"
-        android:lineSpacingExtra="8dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:orientation="vertical"
+        android:padding="16dp">
 
-    <TextView
-        android:id="@+id/infoTextView"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:text="📱 功能说明：\n\n1. 自动监控蓝牙设备\n2. 连接到 SYNC 设备时自动开启热点\n3. 断开时自动关闭热点\n4. 支持华为 HarmonyOS 4.2.0"
-        android:textSize="14sp"
-        android:textAlignment="center"
-        android:gravity="center"
-        android:lineSpacingExtra="4dp"
-        android:textColor="#666666"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textView"
-        app:layout_constraintWidth_percent="0.8" />
+        <TextView
+            android:id="@+id/textView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="正在初始化..."
+            android:textSize="16sp"
+            android:textAlignment="center"
+            android:gravity="center"
+            android:lineSpacingExtra="6dp"
+            android:layout_marginBottom="16dp" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+        <!-- 设置区域 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⚙️ 设置"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="蓝牙设备名称："
+                android:textSize="14sp" />
+
+            <EditText
+                android:id="@+id/deviceNameEditText"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="SYNC"
+                android:textSize="14sp"
+                android:inputType="text"
+                android:maxLines="1" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="热点关闭延迟（秒）："
+                android:textSize="14sp" />
+
+            <EditText
+                android:id="@+id/closeDelayEditText"
+                android:layout_width="80dp"
+                android:layout_height="wrap_content"
+                android:text="60"
+                android:textSize="14sp"
+                android:inputType="number"
+                android:maxLines="1" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/saveButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="💾 保存设置"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp" />
+
+        <!-- 服务控制区域 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔧 服务控制"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/startServiceButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="▶️ 启动后台监控服务"
+            android:textSize="16sp"
+            android:backgroundTint="#4CAF50"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/stopServiceButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⏹️ 停止服务"
+            android:textSize="16sp"
+            android:backgroundTint="#F44336" />
+
+        <!-- 说明区域 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📱 使用说明：\n\n1. 修改设备名称和延迟时间\n2. 点击'保存设置'\n3. 点击'启动后台监控服务'\n4. 通知栏会显示监控状态\n5. 连接到指定设备时自动开启热点"
+            android:textSize="13sp"
+            android:textAlignment="center"
+            android:gravity="center"
+            android:lineSpacingExtra="4dp"
+            android:textColor="#666666"
+            android:layout_marginTop="24dp" />
+
+    </LinearLayout>
+</ScrollView>
