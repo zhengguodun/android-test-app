@@ -255,48 +255,101 @@ public class BluetoothMonitorService extends Service {
     }
 
     private void enableHotspot(boolean enable) {
-        Log.d(TAG, (enable ? "开启" : "关闭") + "WiFi 热点");
+        Log.d(TAG, "========== 热点" + (enable ? "开启" : "关闭") + "请求 ==========");
+        Log.d(TAG, "设备制造商：" + android.os.Build.MANUFACTURER);
+        Log.d(TAG, "设备型号：" + android.os.Build.MODEL);
+        Log.d(TAG, "Android API: " + Build.VERSION.SDK_INT);
+        Log.d(TAG, "Display: " + android.os.Build.DISPLAY);
+        Log.d(TAG, "是华为设备：" + isHuaweiDevice());
+        Log.d(TAG, "是 HarmonyOS: " + isHarmonyOS());
+        Log.d(TAG, "是 HarmonyOS 4.3.0: " + isHarmonyOS430());
         
         android.net.wifi.WifiManager wifiManager = 
             (android.net.wifi.WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         
         if (wifiManager == null) {
-            Log.e(TAG, "WiFiManager 为空");
+            Log.e(TAG, "❌ WiFiManager 为空");
+            updateNotification("❌ 系统错误：无法获取 WiFi 管理器");
             return;
         }
         
+        Log.d(TAG, "✅ WiFiManager 获取成功");
+        
+        // 检查 WiFi 是否可用
+        boolean isWifiEnabled = wifiManager.isWifiEnabled();
+        Log.d(TAG, "WiFi 当前状态：" + (isWifiEnabled ? "已开启" : "已关闭"));
+        
         boolean success = false;
+        String usedMethod = "";
         
         // HarmonyOS 4.3.0 特殊处理
         if (isHarmonyOS430()) {
-            Log.d(TAG, "HarmonyOS 4.3.0 检测到，使用特殊方法");
+            Log.d(TAG, "🔷 使用 HarmonyOS 4.3.0 专用方法");
             success = enableHotspotForHarmonyOS430(wifiManager, enable);
+            if (success) usedMethod = "HarmonyOS 4.3.0";
         }
         
         // 标准 Android 方法
         if (!success) {
+            Log.d(TAG, "🔷 尝试标准 Android 反射方法");
             try {
                 Method method = wifiManager.getClass().getMethod("setWifiApEnabled", 
                     android.net.wifi.WifiConfiguration.class, boolean.class);
                 success = (Boolean) method.invoke(wifiManager, null, enable);
+                if (success) usedMethod = "标准反射";
             } catch (Exception e) {
-                Log.e(TAG, "标准方法开启热点失败", e);
+                Log.e(TAG, "❌ 标准反射方法失败：" + e.getMessage());
             }
         }
         
         // 华为旧设备专用方法
         if (!success && isHuaweiDevice()) {
-            Log.d(TAG, "尝试华为旧设备专用方法");
+            Log.d(TAG, "🔷 尝试华为 HwWifiManager 方法");
             success = enableHotspotForHuawei(wifiManager, enable);
+            if (success) usedMethod = "华为 HwWifiManager";
+        }
+        
+        // 尝试关闭 WiFi 再开启热点（某些设备需要）
+        if (!success && enable && isWifiEnabled) {
+            Log.d(TAG, "🔷 尝试先关闭 WiFi 再开启热点");
+            try {
+                wifiManager.setWifiEnabled(false);
+                Thread.sleep(500);
+                
+                Method method = wifiManager.getClass().getMethod("setWifiApEnabled", 
+                    android.net.wifi.WifiConfiguration.class, boolean.class);
+                success = (Boolean) method.invoke(wifiManager, null, true);
+                if (success) {
+                    usedMethod = "关闭 WiFi 后开启";
+                    Log.d(TAG, "✅ 成功：需要先关闭 WiFi");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "❌ 关闭 WiFi 方法失败：" + e.getMessage());
+                // 尝试重新开启 WiFi
+                try {
+                    wifiManager.setWifiEnabled(true);
+                } catch (Exception ignore) {}
+            }
         }
         
         isHotspotEnabled = enable && success;
         
+        Log.d(TAG, "========== 热点操作完成 ==========");
+        Log.d(TAG, "成功：" + success);
+        Log.d(TAG, "使用方法：" + (usedMethod.isEmpty() ? "无" : usedMethod));
+        Log.d(TAG, "热点状态：" + (isHotspotEnabled ? "已开启" : "已关闭"));
+        
         final String status = enable ? 
-            (success ? "✅ 热点已开启" : "❌ 热点开启失败") : 
+            (success ? "✅ 热点已开启 (" + usedMethod + ")" : "❌ 热点开启失败") : 
             (success ? "✅ 热点已关闭" : "❌ 热点关闭失败");
         
         updateNotification("设备：" + (isConnectedToTarget ? "已连接" : "已断开") + " | " + status);
+        
+        // 如果失败，显示更详细的提示
+        if (!success && enable) {
+            Log.e(TAG, "⚠️ 热点开启失败，可能需要手动开启");
+            Log.e(TAG, "⚠️ 请检查：设置 → 移动网络 → 个人热点");
+        }
     }
 
     private boolean isHuaweiDevice() {
