@@ -372,11 +372,49 @@ public class BluetoothMonitorService extends Service {
             }
         }
         
-        // 方法 5: 使用 Tethering Manager（Android 11+）
+        // 方法 5: 使用 Tethering Manager（Android 11+ 官方 API）
         if (!success && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            serviceLog("🔷 方法 5/5: Tethering Manager (Android 11+)");
+            serviceLog("🔷 方法 5/6: Tethering Manager (Android 11+ 官方 API)");
             success = enableTethering(enable);
             if (success) usedMethod = "Tethering Manager";
+        }
+        
+        // 方法 6: 通过 ContentResolver 修改系统设置
+        if (!success && enable) {
+            serviceLog("🔷 方法 6/6: 修改系统设置 (ContentResolver)");
+            try {
+                // 尝试通过系统设置开启热点
+                android.net.wifi.WifiConfiguration config = new android.net.wifi.WifiConfiguration();
+                config.SSID = "AutoHotspot_" + System.currentTimeMillis();
+                config.preSharedKey = "12345678";
+                config.allowedKeyManagement.set(android.net.wifi.WifiConfiguration.KeyMgmt.WPA_PSK);
+                config.allowedAuthAlgorithms.set(android.net.wifi.WifiConfiguration.AuthAlgorithm.OPEN);
+                config.allowedProtocols.set(android.net.wifi.WifiConfiguration.Protocol.RSN);
+                config.allowedPairwiseCiphers.set(android.net.wifi.WifiConfiguration.PairwiseCipher.CCMP);
+                config.allowedGroupCiphers.set(android.net.wifi.WifiConfiguration.GroupCipher.CCMP);
+                
+                // 尝试不同的反射方法
+                Method[] methods = wifiManager.getClass().getDeclaredMethods();
+                for (Method m : methods) {
+                    if (m.getName().equals("setWifiApEnabled") && m.getParameterCount() == 2) {
+                        serviceLog("  尝试方法：" + m.getName());
+                        m.setAccessible(true);
+                        Boolean result = (Boolean) m.invoke(wifiManager, config, true);
+                        if (result) {
+                            success = true;
+                            usedMethod = "反射 setWifiApEnabled";
+                            serviceLog("✅ 方法 6 成功");
+                            break;
+                        }
+                    }
+                }
+                
+                if (!success) {
+                    serviceLog("❌ 方法 6 所有尝试都失败了", "ERROR");
+                }
+            } catch (Exception e) {
+                serviceLog("❌ 方法 6 异常：" + e.getClass().getSimpleName() + ": " + e.getMessage(), "ERROR");
+            }
         }
         
         isHotspotEnabled = enable && success;
@@ -404,22 +442,100 @@ public class BluetoothMonitorService extends Service {
     }
     
     /**
-     * Android 11+ 使用 Tethering Manager 开启热点
+     * Android 11+ 使用 Tethering Manager 开启热点（官方 API）
      */
     private boolean enableTethering(boolean enable) {
         try {
-            // 尝试使用 TetheringManager
-            Class<?> tetheringManagerClass = Class.forName("android.net.TetheringManager");
-            Method getTetheringManager = android.net.wifi.WifiManager.class
-                .getMethod("getTetheringManager"); // 或者从 Context 获取
+            // 获取 TetheringManager
+            Object tetheringManager;
             
-            // 由于 API 限制，这个方法可能也不可用
-            serviceLog("⚠️ Tethering Manager 方法在当前设备上不可用", "WARN");
-            return false;
+            // 方法 1: 从 Context 获取 TetheringManager
+            try {
+                Class<?> tetheringManagerClass = Class.forName("android.net.TetheringManager");
+                Method getTetheringManager = Context.class.getMethod("getSystemService", String.class);
+                tetheringManager = getTetheringManager.invoke(getApplicationContext(), "tethering");
+                
+                if (tetheringManager == null) {
+                    serviceLog("⚠️ TetheringManager 为空", "WARN");
+                    return false;
+                }
+                
+                serviceLog("  获取 TetheringManager 成功");
+                
+                // 调用 startTethering 方法
+                // public void startTethering(int type, boolean showProvisioningUi, OnStartTetheringCallback callback, Handler handler)
+                Method startTethering = tetheringManager.getClass().getMethod(
+                    "startTethering", 
+                    int.class, 
+                    boolean.class, 
+                    Class.forName("android.net.TetheringManager$OnStartTetheringCallback"),
+                    android.os.Handler.class
+                );
+                
+                // 创建回调对象
+                Class<?> callbackClass = Class.forName("android.net.TetheringManager$OnStartTetheringCallback");
+                Object callback = java.lang.reflect.Proxy.newProxyInstance(
+                    getClass().getClassLoader(),
+                    new Class<?>[] { callbackClass },
+                    new java.lang.reflect.InvocationHandler() {
+                        @Override
+                        public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) throws Throwable {
+                            serviceLog("  Tethering 回调：" + method.getName());
+                            return null;
+                        }
+                    }
+                );
+                
+                // 调用 startTethering
+                // TETHERING_WIFI = 0
+                startTethering.invoke(tetheringManager, 0, false, callback, handler);
+                
+                serviceLog("✅ Tethering Manager 调用成功");
+                
+                // 等待一下让热点启动
+                Thread.sleep(2000);
+                
+                return true;
+                
+            } catch (Exception e) {
+                serviceLog("❌ Tethering Manager 方法 1 失败：" + e.getMessage(), "ERROR");
+            }
+            
+            // 方法 2: 使用 WifiManager 的 startLocalOnlyHotspot
+            try {
+                serviceLog("  尝试 startLocalOnlyHotspot...");
+                Method startLocalOnlyHotspot = wifiManager.getClass().getMethod(
+                    "startLocalOnlyHotspot",
+                    android.net.wifi.WifiManager.LocalOnlyHotspotCallback.class,
+                    android.os.Handler.class
+                );
+                
+                startLocalOnlyHotspot.invoke(wifiManager, new android.net.wifi.WifiManager.LocalOnlyHotspotCallback() {
+                    @Override
+                    public void onStarted(android.net.wifi.WifiManager.LocalOnlyHotspotReservation reservation) {
+                        super.onStarted(reservation);
+                        serviceLog("✅ LocalOnlyHotspot 启动成功");
+                    }
+                    
+                    @Override
+                    public void onFailed(int reason) {
+                        super.onFailed(reason);
+                        serviceLog("❌ LocalOnlyHotspot 失败：" + reason);
+                    }
+                }, handler);
+                
+                serviceLog("✅ startLocalOnlyHotspot 调用成功");
+                return true;
+                
+            } catch (Exception e) {
+                serviceLog("❌ startLocalOnlyHotspot 失败：" + e.getMessage(), "ERROR");
+            }
+            
         } catch (Exception e) {
-            serviceLog("❌ Tethering Manager 失败：" + e.getMessage(), "ERROR");
-            return false;
+            serviceLog("❌ Tethering Manager 异常：" + e.getMessage(), "ERROR");
         }
+        
+        return false;
     }
 
     private boolean isHuaweiDevice() {

@@ -40,7 +40,6 @@ public class MainActivity extends AppCompatActivity {
     private Button saveButton;
     private Button startServiceButton;
     private Button stopServiceButton;
-    private Button openHotspotButton;
     private Button clearLogButton;
     
     private SharedPreferences prefs;
@@ -93,7 +92,6 @@ public class MainActivity extends AppCompatActivity {
         saveButton = findViewById(R.id.saveButton);
         startServiceButton = findViewById(R.id.startServiceButton);
         stopServiceButton = findViewById(R.id.stopServiceButton);
-        openHotspotButton = findViewById(R.id.openHotspotButton);
         clearLogButton = findViewById(R.id.clearLogButton);
     }
     
@@ -124,7 +122,6 @@ public class MainActivity extends AppCompatActivity {
         saveButton.setOnClickListener(v -> saveSettings());
         startServiceButton.setOnClickListener(v -> startMonitorService());
         stopServiceButton.setOnClickListener(v -> stopMonitorService());
-        openHotspotButton.setOnClickListener(v -> openHotspotSettings());
         clearLogButton.setOnClickListener(v -> clearLog());
     }
     
@@ -241,34 +238,6 @@ public class MainActivity extends AppCompatActivity {
         statusTextView.setText("⏹️ 监控服务已停止");
         Toast.makeText(this, "后台监控服务已停止", Toast.LENGTH_SHORT).show();
         appendLog("监控服务已停止");
-    }
-    
-    private void openHotspotSettings() {
-        appendLog("📶 打开热点设置页面...");
-        
-        try {
-            // 尝试打开热点设置页面
-            Intent intent = new Intent();
-            intent.setAction(android.provider.Settings.ACTION_WIRELESS_SETTINGS);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(intent);
-            
-            appendLog("✅ 已打开无线设置页面");
-            Toast.makeText(this, "请手动开启个人热点", Toast.LENGTH_LONG).show();
-        } catch (Exception e) {
-            appendLog("❌ 打开设置失败：" + e.getMessage(), "ERROR");
-            
-            // 尝试备用方法
-            try {
-                Intent intent = new Intent();
-                intent.setAction(android.provider.Settings.ACTION_SETTINGS);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent);
-                appendLog("✅ 已打开系统设置页面");
-            } catch (Exception e2) {
-                appendLog("❌ 无法打开设置页面", "ERROR");
-            }
-        }
     }
     
     private boolean checkPermissions() {
